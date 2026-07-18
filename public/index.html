@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NoMoreForms — Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f1117; color: #f1f5f9;
+           display: grid; place-items: center; min-height: 100vh; margin: 0; }
+    .card { text-align: center; max-width: 480px; padding: 0 24px; }
+    h1 { margin-bottom: 4px; }
+    p.sub { color: #94a3b8; margin-top: 0; }
+    .links { display: flex; gap: 16px; justify-content: center; margin-top: 32px; }
+    a.tile { display: block; padding: 20px 28px; background: #21253a; border: 1px solid #2d3147;
+             border-radius: 8px; color: #f1f5f9; text-decoration: none; min-width: 140px; }
+    a.tile:hover { border-color: #6c63ff; }
+    a.tile strong { display: block; font-size: 1.1rem; }
+    a.tile span { color: #94a3b8; font-size: 0.85rem; }
+    .note { color: #94a3b8; font-size: 0.8rem; margin-top: 32px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔐 NoMoreForms</h1>
+    <p class="sub">Two-device demo — real asymmetric crypto over a blind relay</p>
+    <div class="links">
+      <a class="tile" href="/form/"><strong>Form</strong><span>open on the computer</span></a>
+      <a class="tile" href="/app/"><strong>Vault</strong><span>open on the phone</span></a>
+    </div>
+    <p class="note">Building incrementally — see docs/demo_implementation.md</p>
+  </div>
+</body>
+</html>

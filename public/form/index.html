@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NoMoreForms — Form</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f1117; color: #f1f5f9;
+           display: grid; place-items: center; min-height: 100vh; margin: 0; }
+    .card { text-align: center; }
+    code { background: #1a1d27; padding: 2px 6px; border-radius: 4px; }
+    .ok { color: #22c55e; } .bad { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Form — coming soon</h1>
+    <p>Recipient form page. Placeholder for Phase 4.</p>
+    <p id="ctx">Checking secure context…</p>
+  </div>
+  <script>
+    // Phase 0 verification: crypto.subtle must exist (secure context).
+    const el = document.getElementById('ctx');
+    if (window.crypto && window.crypto.subtle) {
+      el.innerHTML = '<span class="ok">✅ Secure context OK</span> — <code>crypto.subtle</code> available';
+    } else {
+      el.innerHTML = '<span class="bad">❌ No secure context</span> — open via <code>vercel dev</code> or HTTPS, not <code>file://</code>';
+    }
+  </script>
+</body>
+</html>

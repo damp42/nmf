@@ -2,6 +2,8 @@
 
 **Purpose:** Break the demo build (per `NoMoreForms_Demo_Implementation_Spec.md`) into small, independently-verifiable phases so it can be built incrementally across multiple sessions — never one-shotting the whole thing.
 
+> **Architecture decision (updated during Phase 3):** The spec assumed a Vercel deployment with the relay as a Vercel Edge Function. That doesn't work — **Vercel Functions cannot host a WebSocket server** (request/response only, no upgrade support, Edge has a 25s cap). We swapped the whole demo to a **single Node service (`server.js`) deployed on Render**, which serves the static pages *and* hosts the `ws` relay from one process. Wherever this doc says "Vercel", read "Render single Node service". `public/`, `fields.js`, and `crypto.js` are unaffected by the swap.
+
 **How to use this doc:**
 - Work one phase at a time, top to bottom. Each phase has a **Goal**, the **Files** it touches, **Steps**, and a **Done when** checklist.
 - Each phase leaves the app in a working (if incomplete) state — commit at the end of every phase.
@@ -13,7 +15,7 @@
 ## Global constraints (read once, applies everywhere)
 
 1. **SubtleCrypto needs a secure context.** `crypto.subtle` only exists on `https://` or `http://localhost`. It is `undefined` on `file://`. **Never** open the HTML files directly — always use `vercel dev` (localhost is a secure context) or the deployed Vercel URL. This is the single most common failure mode.
-2. **Vercel Edge WebSocket risk.** The relay depends on Vercel Edge WS support, which the spec itself flags as uncertain (spec §Component 1). De-risk this **early** (Phase 3) on a real deploy, not just locally. Fallback path: Ably/Pusher free tier, or a persistent Node `ws` server on Railway/Render. The crypto layer is identical regardless of transport, so a transport swap never touches Phases 2/4/5/6/7.
+2. **Relay transport — RESOLVED.** Vercel Functions cannot host a WebSocket server, so the relay runs in a persistent Node `ws` server. We fold it into the same `server.js` that serves the static pages, deployed on Render. The crypto layer is identical regardless of transport, so this choice never touches Phases 2/4/5/6/7.
 3. **Cross-device testing needs HTTPS.** Camera access (`getUserMedia`) requires a secure context on the phone. For local cross-device testing use `npx ngrok http 3000`; otherwise test on the deployed URL.
 4. **Vanilla stack.** No frameworks, no bundler. Plain HTML/CSS/JS + two CDN libs (`qrcodejs` for the form, `jsQR` for the app). `crypto.js` and `fields.js` are shared verbatim.
 5. **Relay is blind by contract.** It routes by session ID and never parses or logs message content. Any code that makes the relay inspect payloads is a bug against the core pitch.
