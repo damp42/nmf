@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Vercel
+.vercel/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+*.swp
+
+# Local Claude Code tooling config (references personal .env)
+.claude/
