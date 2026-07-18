@@ -252,13 +252,15 @@ api/                         (empty dir, .gitkeep)
 
 **Files:** edits to `public/app/index.html` (approve/deny handlers) and `public/form/index.html` (WS message handler).
 
+> **Name-field model (decided in Phase 5):** `first`/`last` are atomic; `me:identity:name:full` is **computed** and acts as a permission bundle that shares `first` + `last` + computed `full`. Use `buildSharePayload(grantedKeys, vaultState)` (in `fields.js`) to assemble the payload — it expands composites and computes `full`. The form then fills its first/last inputs **directly** from the shared atomic values. **Do NOT split `full` on spaces** — that lossy workaround is obsolete. See memory `name-field-composite-model`.
+
 **Steps — App side** (spec §"App JavaScript Flow" steps 10–11):
-1. **Deny:** connect WS to `payload.relay_url?session=payload.session_id`, send `{ type: "denied" }`, disconnect, go to Screen 3 denial state.
-2. **Approve:** generate vault ephemeral keypair → export pubkey → import form's pubkey → `deriveSharedKey` → build `{ fields: {…} }` from **toggled-on** fields only → `encrypt` → build envelope `{ type:"approved", app_public_key, iv, ciphertext }` → connect WS → send → disconnect → Screen 3 success.
+1. **Deny:** connect WS to the relay for `payload.session_id`, send `{ type: "denied" }`, disconnect, go to Screen 3 denial state.
+2. **Approve:** generate vault ephemeral keypair → export pubkey → import form's pubkey → `deriveSharedKey` → `const fields = buildSharePayload(selectedFields(), vaultState)` (toggled-on grants only) → `encrypt({ fields })` → build envelope `{ type:"approved", app_public_key, iv, ciphertext }` → connect WS → send → disconnect → Screen 3 success.
 
 **Steps — Form side** (spec §"Form Page JavaScript Flow" step 2):
 3. On WS message: parse envelope. If `type==="denied"` → show denial state + log entry, stop.
-4. Otherwise: log receipt with truncated IV + ciphertext and the note *"this is all the relay ever saw"* (log entry 7) → import `app_public_key` → `deriveSharedKey` (entry 8) → note AES key derived (entry 9) → `decrypt` (entry 10, *"server never held plaintext"*) → populate each input from `{ fields }` (entry 11) → wait ~1500ms → inline success state (entry 12).
+4. Otherwise: log receipt with truncated IV + ciphertext and the note *"this is all the relay ever saw"* (log entry 7) → import `app_public_key` → `deriveSharedKey` (entry 8) → note AES key derived (entry 9) → `decrypt` (entry 10, *"server never held plaintext"*) → for each `key → value` in `fields`, populate the input with matching `data-nmf` (first/last fill directly; `full`/emergency have no form input and are simply ignored) (entry 11) → wait ~1500ms → inline success state (entry 12).
 
 **Done when:**
 - [ ] Approve on phone fills the laptop form in real time with exactly the vault values.

@@ -75,13 +75,15 @@ wss.on('connection', (socket, req) => {
   peers.add(socket);
   console.log(`[relay] connect    session=${sessionId} peers=${peers.size}`);
 
-  socket.on('message', (data) => {
-    // NEVER inspect or log content — only its size. Forward verbatim to other peers.
+  socket.on('message', (data, isBinary) => {
+    // NEVER inspect or log content — only its size. Forward verbatim to other peers,
+    // preserving the sender's frame type (our protocol is JSON text, so text stays text
+    // and the browser receives a string rather than a Blob).
     const bytes = data.length ?? data.byteLength ?? 0;
     let forwarded = 0;
     for (const peer of peers) {
       if (peer !== socket && peer.readyState === peer.OPEN) {
-        peer.send(data);
+        peer.send(data, { binary: isBinary });
         forwarded++;
       }
     }

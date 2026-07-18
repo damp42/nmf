@@ -4,29 +4,373 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>NoMoreForms — Vault</title>
-  <style>
-    body { font-family: system-ui, sans-serif; background: #0f1117; color: #f1f5f9;
-           display: grid; place-items: center; min-height: 100vh; margin: 0;
-           max-width: 420px; margin-inline: auto; padding: 0 16px; }
-    .card { text-align: center; }
-    code { background: #1a1d27; padding: 2px 6px; border-radius: 4px; }
-    .ok { color: #22c55e; } .bad { color: #ef4444; }
-  </style>
+  <link rel="stylesheet" href="/app/style.css" />
 </head>
 <body>
-  <div class="card">
-    <h1>Vault — coming soon</h1>
-    <p>Mobile vault app. Placeholder for Phase 5.</p>
-    <p id="ctx">Checking secure context…</p>
+  <div class="app">
+
+    <!-- ===== Screen 1: Vault / Home ===== -->
+    <section class="screen" id="screen-vault">
+      <div class="app-header"><span>🔐</span><h1>NoMoreForms</h1></div>
+      <h2 class="section-title">Your Vault</h2>
+
+      <div class="group">
+        <p class="group__label">Identity</p>
+        <div class="row-2">
+          <label class="vault-field">
+            <span class="vault-field__label">First Name</span>
+            <input type="text" data-nmf="me:identity:name:first" autocomplete="given-name" />
+          </label>
+          <label class="vault-field">
+            <span class="vault-field__label">Last Name</span>
+            <input type="text" data-nmf="me:identity:name:last" autocomplete="family-name" />
+          </label>
+        </div>
+        <p class="computed-note">Full name (computed): <strong id="full-name-preview">—</strong></p>
+        <label class="vault-field">
+          <span class="vault-field__label">Date of Birth</span>
+          <input type="text" data-nmf="me:identity:dob" autocomplete="bday" />
+        </label>
+      </div>
+
+      <div class="group">
+        <p class="group__label">Contact</p>
+        <label class="vault-field">
+          <span class="vault-field__label">Email</span>
+          <input type="email" data-nmf="me:contact:email:primary" autocomplete="email" />
+        </label>
+        <label class="vault-field">
+          <span class="vault-field__label">Mobile Phone</span>
+          <input type="tel" data-nmf="me:contact:phone:mobile" autocomplete="tel" />
+        </label>
+        <label class="vault-field">
+          <span class="vault-field__label">Street Address</span>
+          <input type="text" data-nmf="me:contact:address:street" autocomplete="street-address" />
+        </label>
+        <label class="vault-field">
+          <span class="vault-field__label">City</span>
+          <input type="text" data-nmf="me:contact:address:city" autocomplete="address-level2" />
+        </label>
+        <div class="row-2">
+          <label class="vault-field">
+            <span class="vault-field__label">State</span>
+            <input type="text" data-nmf="me:contact:address:state" autocomplete="address-level1" />
+          </label>
+          <label class="vault-field">
+            <span class="vault-field__label">ZIP</span>
+            <input type="text" data-nmf="me:contact:address:zip" autocomplete="postal-code" />
+          </label>
+        </div>
+      </div>
+
+      <div class="group">
+        <p class="group__label">Insurance</p>
+        <label class="vault-field">
+          <span class="vault-field__label">Provider</span>
+          <input type="text" data-nmf="me:health:insurance:provider" />
+        </label>
+        <label class="vault-field">
+          <span class="vault-field__label">Member ID</span>
+          <input type="text" data-nmf="me:health:insurance:member_id" />
+        </label>
+        <label class="vault-field">
+          <span class="vault-field__label">Group ID</span>
+          <input type="text" data-nmf="me:health:insurance:group_id" />
+        </label>
+      </div>
+
+      <div class="group">
+        <p class="group__label">Emergency Contact</p>
+        <label class="vault-field">
+          <span class="vault-field__label">Name</span>
+          <input type="text" data-nmf="me:health:emergency_contact:name" />
+        </label>
+        <label class="vault-field">
+          <span class="vault-field__label">Phone</span>
+          <input type="tel" data-nmf="me:health:emergency_contact:phone" />
+        </label>
+      </div>
+
+      <button class="btn btn--primary" id="scan-btn">Scan QR Code</button>
+
+      <p class="demo-note">⚠️ Demo mode — vault data is fictional</p>
+    </section>
+
+    <!-- ===== Screen 1.5: QR Scanner ===== -->
+    <section class="screen" id="screen-scanner" hidden>
+      <button class="back-btn" id="scanner-back">← Back</button>
+      <h2 class="section-title">Scan QR Code</h2>
+      <div class="scanner">
+        <video id="scanner-video" class="scanner__video" muted playsinline></video>
+        <div class="scanner__frame"></div>
+      </div>
+      <p class="scanner__hint" id="scanner-hint">Point your camera at the form's QR code</p>
+      <div class="scanner__error" id="scanner-error" hidden>
+        <p id="scanner-error-msg"></p>
+        <button class="btn btn--primary" id="scanner-retry">Try Again</button>
+      </div>
+      <canvas id="scanner-canvas" hidden></canvas>
+    </section>
+
+    <!-- ===== Screen 2: Approval Request ===== -->
+    <section class="screen" id="screen-approval" hidden>
+      <button class="back-btn" id="approval-back">← Back</button>
+      <h2 class="section-title">📋 Data Request</h2>
+
+      <div class="requester">
+        <h2 id="requester-label">—</h2>
+        <p>is requesting access to your data</p>
+      </div>
+
+      <p class="requesting-label">Requesting access to:</p>
+      <div id="approve-fields"></div>
+
+      <div class="approve-actions">
+        <button class="btn btn--success" id="approve-btn">Approve</button>
+        <button class="btn btn--danger" id="deny-btn">Deny</button>
+      </div>
+    </section>
+
+    <!-- ===== Screen 3: Confirmation ===== -->
+    <section class="screen" id="screen-confirm" hidden>
+      <div class="confirm">
+        <div class="confirm__icon" id="confirm-icon">✅</div>
+        <h2 class="confirm__title" id="confirm-title">Shared successfully</h2>
+        <p class="confirm__meta">Sent to:</p>
+        <p class="confirm__meta"><strong id="confirm-recipient">—</strong></p>
+        <p class="confirm__meta" id="confirm-count">0 fields shared</p>
+        <p class="confirm__meta" id="confirm-time">—</p>
+        <ul class="confirm__fields" id="confirm-fields"></ul>
+        <button class="btn btn--primary" id="confirm-back">Back to Vault</button>
+      </div>
+    </section>
+
   </div>
+
+  <script src="/shared/fields.js"></script>
+  <script src="/app/crypto.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="/app/scanner.js"></script>
   <script>
-    // Phase 0 verification: crypto.subtle must exist (secure context).
-    const el = document.getElementById('ctx');
-    if (window.crypto && window.crypto.subtle) {
-      el.innerHTML = '<span class="ok">✅ Secure context OK</span> — <code>crypto.subtle</code> available';
-    } else {
-      el.innerHTML = '<span class="bad">❌ No secure context</span> — open via <code>vercel dev</code> or HTTPS, not <code>file://</code>';
+    // ---- Vault state (in-memory source of truth) ----
+    // first + last are atomic; me:identity:name:full is COMPUTED (see fields.js),
+    // so it is intentionally not stored here.
+    const vaultState = {
+      'me:identity:name:first':            'Alex',
+      'me:identity:name:last':             'Rivera',
+      'me:identity:dob':                   '1985-04-12',
+      'me:contact:email:primary':          'alex.rivera@example.com',
+      'me:contact:phone:mobile':           '555-867-5309',
+      'me:contact:address:street':         '742 Evergreen Terrace',
+      'me:contact:address:city':           'Springfield',
+      'me:contact:address:state':          'IL',
+      'me:contact:address:zip':            '62704',
+      'me:health:insurance:provider':      'BlueCross BlueShield',
+      'me:health:insurance:member_id':     'BCBS-9948821',
+      'me:health:insurance:group_id':      'GRP-40012',
+      'me:health:emergency_contact:name':  'Jordan Rivera',
+      'me:health:emergency_contact:phone': '555-234-5678',
+    };
+
+    // Live preview of the computed full name.
+    const fullNamePreview = document.getElementById('full-name-preview');
+    function refreshFullName() {
+      fullNamePreview.textContent = computeVaultValue(vaultState, 'me:identity:name:full') || '—';
     }
+
+    // Bind every vault input to the state object.
+    document.querySelectorAll('input[data-nmf]').forEach(input => {
+      input.value = vaultState[input.dataset.nmf] ?? '';
+      input.addEventListener('input', () => {
+        vaultState[input.dataset.nmf] = input.value;
+        refreshFullName();
+      });
+    });
+    refreshFullName();
+
+    // ---- Screen navigation ----
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => (s.hidden = s.id !== id));
+      window.scrollTo(0, 0);
+    }
+
+    // ---- Approval screen ----
+    let currentRequest = null; // { fields, label, payload }
+
+    function openApproval(payload) {
+      const fields = resolveFields(payload.requested_fields);
+      const label = payload.recipient_label || 'Unknown requester';
+      currentRequest = { fields, label, payload };
+      document.getElementById('requester-label').textContent = label;
+
+      // Group fields by NMF group, preserving order.
+      const container = document.getElementById('approve-fields');
+      container.innerHTML = '';
+      const seenGroups = new Set();
+      const byGroup = {};
+      const groupOrder = [];
+      for (const key of fields) {
+        const meta = NMF_FIELDS[key];
+        if (!meta) continue;
+        if (!seenGroups.has(meta.group)) { seenGroups.add(meta.group); groupOrder.push(meta.group); byGroup[meta.group] = []; }
+        byGroup[meta.group].push(key);
+      }
+      for (const group of groupOrder) {
+        const label = document.createElement('p');
+        label.className = 'group__label';
+        label.textContent = group;
+        container.appendChild(label);
+        for (const key of byGroup[group]) {
+          const meta = NMF_FIELDS[key];
+          const row = document.createElement('div');
+          row.className = 'approve-field';
+          const name = document.createElement('span');
+          name.className = 'approve-field__name';
+          name.textContent = meta.label;
+          if (meta.sensitivity === 'sensitive') {
+            const lock = document.createElement('span');
+            lock.className = 'approve-field__lock';
+            lock.textContent = '🔒';
+            lock.title = 'Sensitive';
+            name.appendChild(lock);
+          }
+          const toggle = document.createElement('input');
+          toggle.type = 'checkbox';
+          toggle.className = 'switch';
+          toggle.setAttribute('role', 'switch');
+          toggle.checked = true;
+          toggle.dataset.nmf = key;
+          toggle.setAttribute('aria-label', meta.label);
+          row.appendChild(name);
+          row.appendChild(toggle);
+          container.appendChild(row);
+        }
+      }
+      showScreen('screen-approval');
+    }
+
+    // ---- Confirmation screen ----
+    function showConfirm({ success, label, fields }) {
+      document.getElementById('confirm-icon').textContent = success ? '✅' : '❌';
+      const title = document.getElementById('confirm-title');
+      title.textContent = success ? 'Shared successfully' : 'Request denied';
+      title.className = 'confirm__title' + (success ? '' : ' denied');
+      document.getElementById('confirm-recipient').textContent = label;
+      document.getElementById('confirm-count').textContent =
+        success ? `${fields.length} fields shared` : 'No data shared';
+      document.getElementById('confirm-time').textContent = new Date().toLocaleString();
+
+      const list = document.getElementById('confirm-fields');
+      list.innerHTML = '';
+      list.hidden = !success;
+      if (success) {
+        for (const key of fields) {
+          const li = document.createElement('li');
+          li.textContent = '• ' + (NMF_FIELDS[key]?.label ?? key);
+          list.appendChild(li);
+        }
+      }
+      showScreen('screen-confirm');
+    }
+
+    // Which toggles are currently on (used by Approve).
+    function selectedFields() {
+      return [...document.querySelectorAll('#approve-fields .switch')]
+        .filter(t => t.checked).map(t => t.dataset.nmf);
+    }
+
+    // ---- QR scanner ----
+    const videoEl  = document.getElementById('scanner-video');
+    const canvasEl = document.getElementById('scanner-canvas');
+    const scanHint = document.getElementById('scanner-hint');
+    const scanErr  = document.getElementById('scanner-error');
+    const scanErrMsg = document.getElementById('scanner-error-msg');
+
+    function openScanner() {
+      scanErr.hidden = true;
+      scanHint.hidden = false;
+      showScreen('screen-scanner');
+      startScanner(videoEl, canvasEl, onQRDecoded, onScanError);
+    }
+
+    function onQRDecoded(text) {
+      const result = validateQRPayload(text);
+      if (!result.ok) { showScanError(result.msg); return; }
+      openApproval(result.data);
+    }
+
+    function onScanError(reason, err) {
+      const msg = reason === 'permission'
+        ? 'Camera access was denied. Allow camera access in your browser settings, then try again.'
+        : 'Camera unavailable — the vault must be opened over HTTPS (or localhost).';
+      showScanError(msg);
+    }
+
+    function showScanError(msg) {
+      scanHint.hidden = true;
+      scanErrMsg.textContent = msg;
+      scanErr.hidden = false;
+    }
+
+    document.getElementById('scan-btn').addEventListener('click', openScanner);
+    document.getElementById('scanner-retry').addEventListener('click', openScanner);
+    document.getElementById('scanner-back').addEventListener('click', () => {
+      stopScanner(videoEl);
+      showScreen('screen-vault');
+    });
+
+    // ---- Relay send (one-shot: connect → send → close) ----
+    function sendViaRelay(relayUrl, sessionId, message) {
+      const sock = new WebSocket(`${relayUrl}?session=${encodeURIComponent(sessionId)}`);
+      sock.onopen = () => {
+        sock.send(message);
+        // Give the frame time to flush before closing.
+        setTimeout(() => { try { sock.close(); } catch (_) {} }, 300);
+      };
+      sock.onerror = (e) => console.error('[app] relay send error', e);
+    }
+
+    // ---- Wiring ----
+    document.getElementById('approval-back').addEventListener('click', () => showScreen('screen-vault'));
+
+    const approveBtn = document.getElementById('approve-btn');
+    approveBtn.addEventListener('click', async () => {
+      approveBtn.disabled = true;
+      try {
+        const granted = selectedFields();
+        const p = currentRequest.payload;
+
+        // Ephemeral vault keypair + ECDH agreement with the form's public key.
+        const vaultKeypair = await generateKeypair();
+        const appPub = await exportPublicKey(vaultKeypair);
+        const formPub = await importPublicKey(p.public_key);
+        const sharedKey = await deriveSharedKey(vaultKeypair.privateKey, formPub);
+
+        // Build the payload from granted fields (composites expanded, full computed).
+        const fields = buildSharePayload(granted, vaultState);
+        const { iv, ciphertext } = await encrypt(sharedKey, { fields });
+
+        const envelope = JSON.stringify({ type: 'approved', app_public_key: appPub, iv, ciphertext });
+        sendViaRelay(p.relay_url, p.session_id, envelope);
+
+        showConfirm({ success: true, label: currentRequest.label, fields: granted });
+      } catch (err) {
+        console.error(err);
+        showConfirm({ success: false, label: currentRequest.label, fields: [] });
+      } finally {
+        approveBtn.disabled = false;
+      }
+    });
+
+    document.getElementById('deny-btn').addEventListener('click', () => {
+      const p = currentRequest.payload;
+      sendViaRelay(p.relay_url, p.session_id, JSON.stringify({ type: 'denied' }));
+      showConfirm({ success: false, label: currentRequest.label, fields: [] });
+    });
+    document.getElementById('confirm-back').addEventListener('click', () => {
+      currentRequest = null;
+      showScreen('screen-vault');
+    });
   </script>
 </body>
 </html>

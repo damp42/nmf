@@ -1,0 +1,138 @@
+:root {
+  --bg-primary:     #0f1117;
+  --bg-secondary:   #1a1d27;
+  --bg-card:        #21253a;
+  --bg-form:        #ffffff;
+  --accent:         #6c63ff;
+  --accent-hover:   #5750e3;
+  --success:        #22c55e;
+  --warning:        #f59e0b;
+  --error:          #ef4444;
+  --text-primary:   #f1f5f9;
+  --text-muted:     #94a3b8;
+  --text-on-light:  #1e293b;
+  --border:         #2d3147;
+  --mono:           'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  --sans:           'Inter', system-ui, sans-serif;
+  --radius:         8px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+/* ---- Demo banner ---- */
+.banner {
+  background: color-mix(in srgb, var(--warning) 18%, var(--bg-secondary));
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  text-align: center;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+}
+
+/* ---- Two-column layout ---- */
+.layout {
+  display: grid;
+  grid-template-columns: 55fr 45fr;
+  gap: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+/* ---- Left: the form (looks like a real form) ---- */
+.form-panel {
+  background: var(--bg-form);
+  color: var(--text-on-light);
+  border-radius: var(--radius);
+  padding: 28px;
+}
+.form-panel h1 { font-size: 1.3rem; margin: 0 0 2px; }
+.form-panel .office { color: #64748b; font-size: 0.9rem; margin: 0 0 20px; }
+
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field.col-span { grid-column: 1 / -1; }
+.field label { font-size: 0.78rem; font-weight: 600; color: #475569; }
+.field input {
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: var(--sans);
+  color: var(--text-on-light);
+  background: #f8fafc;
+  transition: box-shadow 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.field input[readonly] { color: #94a3b8; background: #f1f5f9; cursor: default; }
+.field input.filled { color: var(--text-on-light); background: #fff; border-color: var(--accent); }
+/* population pulse (used in Phase 7) */
+.field input.pulse { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent); }
+
+/* ---- QR block ---- */
+.qr-block { margin-top: 24px; text-align: center; }
+.qr-container {
+  display: inline-block;
+  padding: 14px;
+  background: #fff;
+  border-radius: var(--radius);
+  border: 2px solid var(--accent);
+  animation: breathe 2.4s ease-in-out infinite;
+}
+.qr-container img, .qr-container canvas, .qr-container svg { display: block; }
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent); }
+  50%      { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+.qr-caption { margin-top: 12px; font-size: 0.9rem; color: #475569; }
+.status { margin-top: 8px; font-size: 0.9rem; color: var(--warning); font-weight: 600; }
+.status.done { color: var(--success); }
+.status.denied { color: var(--error); }
+
+/* ---- Right: crypto log (dark terminal) ---- */
+.log-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
+}
+.log-panel h2 { margin: 0; font-size: 1.05rem; }
+.log-panel .subtitle { color: var(--text-muted); font-size: 0.82rem; margin: 4px 0 16px; }
+.log {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 70vh;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+}
+.log-entry { padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); animation: fadein 0.15s ease; }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.log-line { display: flex; gap: 8px; align-items: baseline; }
+.log-icon { flex-shrink: 0; }
+.log-time { color: var(--text-muted); flex-shrink: 0; }
+.log-label { color: var(--text-primary); }
+.log-detail {
+  margin: 6px 0 0 26px;
+  padding: 8px 10px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 0.78rem;
+}
+.log-entry.pending .log-label { color: var(--warning); }
+.log-entry.error .log-label { color: var(--error); }

@@ -49,3 +49,44 @@ function resolveFields(requested) {
   }
   return [...new Set(resolved)];
 }
+
+// Composite (aggregate) fields. Granting one shares ALL its constituent values,
+// not just the field itself — the receiver decides which to persist.
+// me:identity:name:full is a permission bundle over first + last + the computed
+// full name: a form with first/last inputs reads those directly (no lossy split),
+// while a form wanting a single name reads full. All three ride in the payload.
+const NMF_COMPOSITES = {
+  'me:identity:name:full': [
+    'me:identity:name:first',
+    'me:identity:name:last',
+    'me:identity:name:full',
+  ],
+};
+
+// Values derived from atomic vault fields rather than stored directly.
+function computeVaultValue(state, key) {
+  if (key === 'me:identity:name:full') {
+    return `${state['me:identity:name:first'] ?? ''} ${state['me:identity:name:last'] ?? ''}`.trim();
+  }
+  return state[key];
+}
+
+// Expand granted field keys into the concrete set of value keys to share.
+function expandForShare(grantedKeys) {
+  const out = [];
+  for (const k of grantedKeys) {
+    if (NMF_COMPOSITES[k]) out.push(...NMF_COMPOSITES[k]);
+    else out.push(k);
+  }
+  return [...new Set(out)];
+}
+
+// Build the { key: value } map to encrypt & send, from granted keys + vault state.
+// Phase 7 (app Approve handler) calls this to assemble the payload.
+function buildSharePayload(grantedKeys, state) {
+  const fields = {};
+  for (const key of expandForShare(grantedKeys)) {
+    fields[key] = computeVaultValue(state, key);
+  }
+  return fields;
+}

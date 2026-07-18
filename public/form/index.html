@@ -3,29 +3,263 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NoMoreForms — Form</title>
-  <style>
-    body { font-family: system-ui, sans-serif; background: #0f1117; color: #f1f5f9;
-           display: grid; place-items: center; min-height: 100vh; margin: 0; }
-    .card { text-align: center; }
-    code { background: #1a1d27; padding: 2px 6px; border-radius: 4px; }
-    .ok { color: #22c55e; } .bad { color: #ef4444; }
-  </style>
+  <title>Patient Intake — NoMoreForms Demo</title>
+  <link rel="stylesheet" href="/form/style.css" />
 </head>
 <body>
-  <div class="card">
-    <h1>Form — coming soon</h1>
-    <p>Recipient form page. Placeholder for Phase 4.</p>
-    <p id="ctx">Checking secure context…</p>
+  <div class="banner">⚠️ Demo mode — the crypto is real, the vault data is fictional</div>
+
+  <div class="layout">
+    <!-- LEFT: the form -->
+    <section class="form-panel">
+      <h1>Patient Intake Form</h1>
+      <p class="office">Dr. Smith's Office</p>
+
+      <div class="field-grid">
+        <div class="field">
+          <label for="first-name">First Name</label>
+          <input id="first-name" data-nmf="me:identity:name:first" autocomplete="given-name" readonly />
+        </div>
+        <div class="field">
+          <label for="last-name">Last Name</label>
+          <input id="last-name" data-nmf="me:identity:name:last" autocomplete="family-name" readonly />
+        </div>
+        <div class="field">
+          <label for="dob">Date of Birth</label>
+          <input id="dob" data-nmf="me:identity:dob" autocomplete="bday" readonly />
+        </div>
+        <div class="field">
+          <label for="phone">Mobile Phone</label>
+          <input id="phone" data-nmf="me:contact:phone:mobile" autocomplete="tel" readonly />
+        </div>
+        <div class="field col-span">
+          <label for="street">Street Address</label>
+          <input id="street" data-nmf="me:contact:address:street" autocomplete="street-address" readonly />
+        </div>
+        <div class="field col-span">
+          <label for="city">City</label>
+          <input id="city" data-nmf="me:contact:address:city" autocomplete="address-level2" readonly />
+        </div>
+        <div class="field">
+          <label for="state">State</label>
+          <input id="state" data-nmf="me:contact:address:state" autocomplete="address-level1" readonly />
+        </div>
+        <div class="field">
+          <label for="zip">ZIP Code</label>
+          <input id="zip" data-nmf="me:contact:address:zip" autocomplete="postal-code" readonly />
+        </div>
+        <div class="field col-span">
+          <label for="email">Email Address</label>
+          <input id="email" data-nmf="me:contact:email:primary" autocomplete="email" readonly />
+        </div>
+        <div class="field col-span">
+          <label for="insurance-provider">Insurance Provider</label>
+          <input id="insurance-provider" data-nmf="me:health:insurance:provider" readonly />
+        </div>
+        <div class="field">
+          <label for="member-id">Member ID</label>
+          <input id="member-id" data-nmf="me:health:insurance:member_id" readonly />
+        </div>
+        <div class="field">
+          <label for="group-id">Group ID</label>
+          <input id="group-id" data-nmf="me:health:insurance:group_id" readonly />
+        </div>
+      </div>
+
+      <div class="qr-block">
+        <div class="qr-container" id="qr-container"></div>
+        <p class="qr-caption">Scan with the NoMoreForms app</p>
+        <p class="status" id="status">Initializing…</p>
+      </div>
+    </section>
+
+    <!-- RIGHT: crypto log -->
+    <aside class="log-panel">
+      <h2>🔐 Crypto Log</h2>
+      <p class="subtitle">Everything the relay server saw is shown here.</p>
+      <div class="log" id="crypto-log"></div>
+    </aside>
   </div>
+
+  <!-- shared + crypto helpers (globals, classic scripts) -->
+  <script src="/shared/fields.js"></script>
+  <script src="/form/crypto.js"></script>
+  <!-- QR library (qrcode-generator — reliable auto-versioning via typeNumber 0) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+  <script src="/form/qr.js"></script>
+
   <script>
-    // Phase 0 verification: crypto.subtle must exist (secure context).
-    const el = document.getElementById('ctx');
-    if (window.crypto && window.crypto.subtle) {
-      el.innerHTML = '<span class="ok">✅ Secure context OK</span> — <code>crypto.subtle</code> available';
-    } else {
-      el.innerHTML = '<span class="bad">❌ No secure context</span> — open via <code>vercel dev</code> or HTTPS, not <code>file://</code>';
+    // ---- Config ----
+    const REQUESTED_FIELDS = ['bundle:patient_intake'];
+    const RECIPIENT_LABEL  = "Dr. Smith's Office - Patient Intake";
+    const SESSION_TTL_MS   = 5 * 60 * 1000;
+    // Relay lives on the same origin (single Node service). Scheme follows the page:
+    // ws:// on localhost, wss:// on Render.
+    const RELAY_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/relay`;
+
+    // ---- DOM ----
+    const logEl    = document.getElementById('crypto-log');
+    const qrEl     = document.getElementById('qr-container');
+    const statusEl = document.getElementById('status');
+
+    // ---- Log helper ----
+    function nowHHMMSS() { return new Date().toTimeString().slice(0, 8); }
+    function log({ icon = '✅', label, detail, cls = '' }) {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry' + (cls ? ' ' + cls : '');
+      const line = document.createElement('div');
+      line.className = 'log-line';
+      line.innerHTML =
+        `<span class="log-icon">${icon}</span>` +
+        `<span class="log-time">${nowHHMMSS()}</span>` +
+        `<span class="log-label"></span>`;
+      line.querySelector('.log-label').textContent = label;
+      entry.appendChild(line);
+      if (detail) {
+        const pre = document.createElement('pre');
+        pre.className = 'log-detail';
+        pre.textContent = detail;
+        entry.appendChild(pre);
+      }
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+      return entry;
     }
+
+    function setStatus(text, cls = '') {
+      statusEl.textContent = text;
+      statusEl.className = 'status' + (cls ? ' ' + cls : '');
+    }
+
+    // ---- Session state ----
+    let session, keypair, ws, expiryTimer;
+
+    function newSessionId() {
+      const b = crypto.getRandomValues(new Uint8Array(4));
+      return 'sess_' + [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function setup() {
+      // a. session id
+      session = newSessionId();
+      log({ label: `Session created — ${session}` });
+
+      // b/c. ephemeral ECDH keypair + exported public key
+      keypair = await generateKeypair();
+      const pub = await exportPublicKey(keypair);
+      log({ label: 'ECDH keypair generated (P-256)', detail: `Pub: ${truncate(pub, 10)}` });
+
+      // d/e. build QR payload
+      const expiresAt = Date.now() + SESSION_TTL_MS;
+      const fields = resolveFields(REQUESTED_FIELDS);
+      const qrPayload = {
+        session_id:       session,
+        public_key:       pub,
+        requested_fields: REQUESTED_FIELDS,
+        relay_url:        RELAY_URL,
+        recipient_label:  RECIPIENT_LABEL,
+        expires_at:       expiresAt,
+      };
+
+      // f. render QR
+      await renderQR(qrEl, JSON.stringify(qrPayload));
+      log({ label: 'QR code rendered — awaiting scan', detail: `${fields.length} fields requested` });
+
+      // g. connect relay
+      connectRelay();
+
+      // schedule expiry/refresh
+      clearTimeout(expiryTimer);
+      expiryTimer = setTimeout(refresh, SESSION_TTL_MS);
+    }
+
+    function connectRelay() {
+      ws = new WebSocket(`${RELAY_URL}?session=${encodeURIComponent(session)}`);
+      ws.onopen = () => {
+        log({ label: 'WebSocket connected → relay', detail: RELAY_URL });
+        log({ icon: '⏳', label: "Awaiting approval on user's device…", cls: 'pending' });
+        setStatus('Waiting for approval…');
+      };
+      ws.onmessage = handleRelayMessage;
+      ws.onerror = () => log({ icon: '❌', label: 'Relay connection error', cls: 'error' });
+      ws.onclose = () => { /* refresh() reconnects with a fresh session */ };
+    }
+
+    async function handleRelayMessage(event) {
+      try {
+        // Relay forwards text, but be robust if it ever arrives as a Blob.
+        const text = typeof event.data === 'string' ? event.data : await event.data.text();
+        const envelope = JSON.parse(text);
+
+        if (envelope.type === 'denied') {
+          log({ icon: '❌', label: 'Request denied by user', cls: 'error' });
+          setStatus('Request denied by user', 'denied');
+          return;
+        }
+
+        // 7. encrypted payload received (exactly what the relay saw)
+        log({
+          label: 'Encrypted payload received from relay',
+          detail: `IV: ${truncate(envelope.iv)}\nCT: ${truncate(envelope.ciphertext)}\n(this is all the relay ever saw)`,
+        });
+
+        // 8/9. ECDH key agreement + HKDF → AES key
+        const appPub = await importPublicKey(envelope.app_public_key);
+        const sharedKey = await deriveSharedKey(keypair.privateKey, appPub);
+        log({ label: 'ECDH key agreement performed', detail: 'shared secret = ECDH(form_private, app_public)' });
+        log({ label: 'AES-256-GCM key derived via HKDF' });
+
+        // 10. decrypt — client-side only
+        const payload = await decrypt(sharedKey, { iv: envelope.iv, ciphertext: envelope.ciphertext });
+        const fields = payload.fields || {};
+        const received = Object.keys(fields);
+        log({
+          label: 'Payload decrypted — client-side only',
+          detail: `${received.length} values received\n(server never held plaintext)`,
+        });
+
+        // 11. populate matching inputs (first/last fill directly; full/emergency have no input → ignored)
+        let filled = 0;
+        for (const [key, value] of Object.entries(fields)) {
+          const input = document.querySelector(`input[data-nmf="${CSS.escape(key)}"]`);
+          if (!input) continue;
+          input.value = value;
+          input.classList.add('filled', 'pulse');
+          setTimeout(() => input.classList.remove('pulse'), 600);
+          filled++;
+        }
+        log({ label: `Form fields populated — ${filled} filled` });
+
+        // 12/13. submit + audit (after a beat so the audience sees the fill)
+        setStatus('✅ Submitted via NoMoreForms', 'done');
+        setTimeout(() => {
+          log({ label: 'Form submitted' });
+          log({ label: `Audit event logged — ${nowHHMMSS()}`, detail: received.join(', ') });
+        }, 1500);
+      } catch (err) {
+        console.error(err);
+        log({ icon: '❌', label: 'Failed to process payload', detail: String(err), cls: 'error' });
+      }
+    }
+
+    function refresh() {
+      try { ws && ws.close(); } catch (_) {}
+      log({ icon: '🔄', label: 'Session refreshed — new QR generated' });
+      setup();
+    }
+
+    // kick off
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!window.crypto || !crypto.subtle) {
+        setStatus('❌ No secure context — serve over https:// or http://localhost', 'denied');
+        log({ icon: '❌', label: 'crypto.subtle unavailable — not a secure context', cls: 'error' });
+        return;
+      }
+      setup().catch(err => {
+        console.error(err);
+        log({ icon: '❌', label: 'Setup failed', detail: String(err), cls: 'error' });
+      });
+    });
   </script>
 </body>
 </html>
