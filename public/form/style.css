@@ -136,3 +136,40 @@ body {
 }
 .log-entry.pending .log-label { color: var(--warning); }
 .log-entry.error .log-label { color: var(--error); }
+
+/* terminal/network-inspector look for IV/CT */
+.log-detail { border-left: 2px solid var(--border); }
+/* pitch-critical callouts ("relay was blind", "server never held plaintext") */
+.log-note {
+  margin: 6px 0 0 26px;
+  padding: 6px 10px;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  border-left: 2px solid var(--success);
+  border-radius: 0 6px 6px 0;
+}
+
+/* ✓ badge on fields filled via NMF (matches the intake-form mockup) */
+.field { position: relative; }
+.field:has(input.filled)::after {
+  content: '✓';
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  color: var(--success);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* denial state — stop the QR breathing, dim it */
+.form-panel.denied .qr-container { animation: none; border-color: var(--error); opacity: 0.45; }
+.form-panel.denied .qr-caption { opacity: 0.45; }
+
+@media (prefers-reduced-motion: reduce) {
+  .qr-container { animation: none; }
+  .log-entry { animation: none; }
+  .field input { transition: none; }
+}

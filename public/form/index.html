@@ -104,7 +104,7 @@
 
     // ---- Log helper ----
     function nowHHMMSS() { return new Date().toTimeString().slice(0, 8); }
-    function log({ icon = '✅', label, detail, cls = '' }) {
+    function log({ icon = '✅', label, detail, note, cls = '' }) {
       const entry = document.createElement('div');
       entry.className = 'log-entry' + (cls ? ' ' + cls : '');
       const line = document.createElement('div');
@@ -120,6 +120,12 @@
         pre.className = 'log-detail';
         pre.textContent = detail;
         entry.appendChild(pre);
+      }
+      if (note) {
+        const n = document.createElement('div');
+        n.className = 'log-note';
+        n.textContent = note;
+        entry.appendChild(n);
       }
       logEl.appendChild(entry);
       logEl.scrollTop = logEl.scrollHeight;
@@ -193,14 +199,16 @@
 
         if (envelope.type === 'denied') {
           log({ icon: '❌', label: 'Request denied by user', cls: 'error' });
-          setStatus('Request denied by user', 'denied');
+          setStatus('✕ Request denied by user', 'denied');
+          document.querySelector('.form-panel').classList.add('denied');
           return;
         }
 
         // 7. encrypted payload received (exactly what the relay saw)
         log({
           label: 'Encrypted payload received from relay',
-          detail: `IV: ${truncate(envelope.iv)}\nCT: ${truncate(envelope.ciphertext)}\n(this is all the relay ever saw)`,
+          detail: `IV  ${truncate(envelope.iv)}\nCT  ${truncate(envelope.ciphertext)}`,
+          note: 'This is all the relay ever saw.',
         });
 
         // 8/9. ECDH key agreement + HKDF → AES key
@@ -215,7 +223,8 @@
         const received = Object.keys(fields);
         log({
           label: 'Payload decrypted — client-side only',
-          detail: `${received.length} values received\n(server never held plaintext)`,
+          detail: `${received.length} values received`,
+          note: 'Server never held plaintext.',
         });
 
         // 11. populate matching inputs (first/last fill directly; full/emergency have no input → ignored)

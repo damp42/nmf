@@ -152,7 +152,11 @@ body {
 
 /* ---- Confirmation screen ---- */
 .confirm { text-align: center; padding-top: 48px; }
-.confirm__icon { font-size: 4rem; line-height: 1; }
+.confirm__icon { font-size: 4rem; line-height: 1; animation: pop 0.4s cubic-bezier(0.22, 1.2, 0.4, 1); }
+@keyframes pop {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
 .confirm__title { font-size: 1.5rem; margin: 16px 0 8px; }
 .confirm__title.denied { color: var(--error); }
 .confirm__meta { color: var(--text-muted); margin: 4px 0; }
@@ -161,3 +165,9 @@ body {
   border-radius: var(--radius); padding: 16px; margin: 20px 0; list-style: none;
 }
 .confirm__fields li { padding: 4px 0; font-size: 0.9rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .screen:not([hidden]) { animation: none; }
+  .confirm__icon { animation: none; }
+  .switch, .switch::after { transition: none; }
+}

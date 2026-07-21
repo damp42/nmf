@@ -258,7 +258,9 @@
       document.getElementById('confirm-recipient').textContent = label;
       document.getElementById('confirm-count').textContent =
         success ? `${fields.length} fields shared` : 'No data shared';
-      document.getElementById('confirm-time').textContent = new Date().toLocaleString();
+      document.getElementById('confirm-time').textContent = new Date().toLocaleString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      });
 
       const list = document.getElementById('confirm-fields');
       list.innerHTML = '';
