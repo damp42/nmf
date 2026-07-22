@@ -2,7 +2,8 @@
 // Uses ONLY the browser's built-in Web Crypto API (SubtleCrypto). No external libraries.
 //
 // ⚠️ crypto.subtle only exists in secure contexts (https:// or http://localhost).
-//    It is undefined on file:// URLs. Always serve via `vercel dev` or the deployed URL.
+//    It is undefined on file:// URLs. Always serve via the local server (`npm start`)
+//    or the deployed HTTPS URL.
 //
 // This file is IDENTICAL in public/form/ and public/app/. Keep both copies in sync.
 

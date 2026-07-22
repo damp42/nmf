@@ -14,7 +14,7 @@
 
 ## Global constraints (read once, applies everywhere)
 
-1. **SubtleCrypto needs a secure context.** `crypto.subtle` only exists on `https://` or `http://localhost`. It is `undefined` on `file://`. **Never** open the HTML files directly — always use `vercel dev` (localhost is a secure context) or the deployed Vercel URL. This is the single most common failure mode.
+1. **SubtleCrypto needs a secure context.** `crypto.subtle` only exists on `https://` or `http://localhost`. It is `undefined` on `file://`. **Never** open the HTML files directly — always use the local server (`npm start`, which serves `http://localhost` — a secure context) or the deployed Render URL. This is the single most common failure mode.
 2. **Relay transport — RESOLVED.** Vercel Functions cannot host a WebSocket server, so the relay runs in a persistent Node `ws` server. We fold it into the same `server.js` that serves the static pages, deployed on Render. The crypto layer is identical regardless of transport, so this choice never touches Phases 2/4/5/6/7.
 3. **Cross-device testing needs HTTPS.** Camera access (`getUserMedia`) requires a secure context on the phone. For local cross-device testing use `npx ngrok http 3000`; otherwise test on the deployed URL.
 4. **Vanilla stack.** No frameworks, no bundler. Plain HTML/CSS/JS + two CDN libs (`qrcodejs` for the form, `jsQR` for the app). `crypto.js` and `fields.js` are shared verbatim.
@@ -61,34 +61,36 @@ Phases 1, 2, 3 can be done in any order (or parallel). Phases 4 and 5–6 can pr
 
 ## Phase 0 — Scaffolding & deploy pipeline
 
-**Goal:** An empty-but-deployable skeleton. `vercel dev` serves placeholder `/form/` and `/app/` pages over a secure context. First deploy to Vercel succeeds.
+> Built with `vercel dev` initially; swapped to a Render single Node service in Phase 3 (see top note). Reflects the Render setup below.
+
+**Goal:** An empty-but-runnable skeleton. `npm start` serves placeholder `/form/` and `/app/` pages over a secure context (`http://localhost`).
 
 **Depends on:** nothing.
 
 **Files:**
 ```
-package.json
-vercel.json
+package.json                 (start: node server.js)
+server.js                    (static file server + ws relay — filled in Phase 3)
 README.md
-public/form/index.html      (placeholder: "Form — coming soon")
-public/app/index.html        (placeholder: "App — coming soon")
+public/index.html            (landing page)
+public/form/index.html       (placeholder: "Form — coming soon")
+public/app/index.html         (placeholder: "App — coming soon")
 public/shared/               (empty dir, .gitkeep)
-api/                         (empty dir, .gitkeep)
-.gitignore                   (node_modules, .vercel, .env)
+.gitignore                   (node_modules, .env, .claude)
 ```
 
 **Steps:**
-1. Create the repo structure from spec §Repository Structure.
-2. `package.json` and `vercel.json` verbatim from spec §Component 1 (rewrites route `/api/relay`, `/form/(.*)`, `/app/(.*)`).
+1. Create the repo structure (single Node service, no framework).
+2. `package.json` with `"start": "node server.js"` and dependency `ws`.
 3. Placeholder `index.html` in `form/` and `app/` — just enough to confirm routing works.
-4. `README.md` stub whose **first instruction** is the `vercel dev` / secure-context warning (spec §Running the Demo).
-5. Run `vercel dev`, confirm both routes load. Do a first `vercel` deploy to establish the project + URL.
+4. `README.md` whose **first instruction** is the secure-context warning.
+5. Run `npm start`, confirm both routes load.
 
 **Done when:**
-- [ ] `vercel dev` serves `http://localhost:3000/form/` and `/app/`.
+- [ ] `npm start` serves `http://localhost:3000/form/` and `/app/`.
 - [ ] `crypto.subtle` is defined in the browser console on both (proves secure context).
-- [ ] `vercel` deploy succeeds and the public URL loads both routes.
-- [ ] README leads with the secure-context / `vercel dev` warning.
+- [ ] README leads with the secure-context warning.
+- [ ] (deploy pipeline established once `server.js` exists in Phase 3: push to `main` → Render auto-deploys.)
 
 ---
 
@@ -141,27 +143,29 @@ api/                         (empty dir, .gitkeep)
 
 ## Phase 3 — Relay server + connectivity test  ⚠️ DE-RISK EARLY
 
-**Goal:** A blind, session-scoped WebSocket relay running both under `vercel dev` **and on a real Vercel deploy**. This phase exists early specifically to surface Vercel Edge WS problems before they can block the integration.
+> This is the phase that surfaced the platform decision: attempting the relay revealed **Vercel Functions cannot host a WebSocket server**, so the whole demo moved to a **single Render Node service** (`server.js`) that serves the static pages *and* the `ws` relay. The relay behavior below is transport-agnostic and unchanged by that swap.
+
+**Goal:** A blind, session-scoped WebSocket relay running locally (`npm start`) **and on a real Render deploy**. Verifying on the actual host early is the whole point — it's what caught the Vercel limitation.
 
 **Depends on:** Phase 0.
 
-**Files:** `api/relay.js`
+**Files:** `server.js` (relay folded into the same process that serves static files)
 
 **Steps:**
-1. Implement per spec §Component 1 "Relay Behavior":
-   - `export const config = { runtime: 'edge' }`.
-   - Accept `?session=<id>`; maintain `session_id → Set<socket>`.
-   - On message: broadcast to **other** peers in the same session only. Never parse/log content.
+1. Implement the relay in `server.js` using the `ws` package:
+   - Accept `?session=<id>` on the `/api/relay` path; maintain `session_id → Set<socket>`.
+   - On message: forward to **other** peers in the same session only, preserving frame type (text stays text). Never parse/log content.
    - On disconnect: clean up the session map.
    - Console-log **only** session ID, connect/disconnect, and message byte size — never content.
-2. Write a throwaway two-tab test (or a small `wscat`/script): two clients on the same `?session=abc` see each other's messages; a client on `?session=xyz` does not.
-3. **Deploy to Vercel and repeat the same test on the public URL.** If Edge WS is unreliable, invoke the fallback now (Ably/Pusher free tier, or Node `ws` on Railway/Render) and document the chosen transport + URL in the README. Record the final `relay_url` — Phase 4 hardcodes it into the QR payload.
+2. Write a throwaway script (two `ws` clients): same `?session=abc` see each other; a client on `?session=xyz` does not.
+3. **Push to `main` (Render auto-deploys) and repeat the test on the public wss:// URL.** Confirm real WebSockets work on the host. Record that the client derives `relay_url` from `location` (same origin, single service) — no hardcoding.
 
 **Done when:**
 - [ ] Two clients with the same session ID exchange messages locally.
 - [ ] Two clients with **different** session IDs are isolated (no cross-talk).
 - [ ] Disconnecting one peer doesn't disturb the other.
-- [ ] Vercel function logs show **only** session IDs / events / byte sizes — zero payload content.
+- [ ] Server logs show **only** session IDs / events / byte sizes — zero payload content.
+- [ ] The deployed Render relay passes the same test over `wss://`.
 - [ ] The **deployed** relay passes the same tests (or the fallback transport is chosen, working, and documented).
 - [ ] Final `relay_url` recorded for Phase 4.
 
@@ -297,13 +301,13 @@ api/                         (empty dir, .gitkeep)
 
 **Depends on:** Phase 8. Do only what raises demo impact; each is self-contained.
 
-From spec §"Suggested Enhancements", rough priority:
-1. **DevTools callout** tooltip on the crypto log ("Open DevTools → Network → WS…").
-2. **Partial approval polish** — log which fields were excluded when toggled off.
-3. **QR expiry countdown** timer under the QR.
-4. **Deny flow polish** — richer denied state + timestamped log entry.
-5. **Exportable audit JSON** — "Download audit log" (session ID, timestamp, field list, ciphertext blob).
-6. **Persistent relay on Railway** — only if Vercel Edge WS proved flaky in Phase 3/10.
+From spec §"Suggested Enhancements":
+1. **DevTools callout** on the crypto log ("Open DevTools → Network → WS…"). — ✅ done
+2. **Partial approval polish** — log which fields were excluded when toggled off (carried inside the ciphertext, so the relay stays blind to it). — ✅ done
+3. **QR expiry countdown** timer under the QR. — ✅ done
+4. **Deny flow polish** — richer denied state (denial card + timestamp). — ✅ done
+5. **Exportable audit JSON** — ✂️ scrapped (not needed).
+6. ~~Persistent relay~~ — moot; the relay is already a persistent Node process on Render.
 
 **Done when:** each chosen enhancement works without regressing Phase 7/8.
 
@@ -316,17 +320,17 @@ From spec §"Suggested Enhancements", rough priority:
 **Depends on:** Phase 8 (Phase 9 optional).
 
 **Steps:**
-1. `vercel --prod`. Confirm `/form/`, `/app/`, and the relay all work on the public URL.
-2. Run the full spec §"Running the Demo (Live)" script: laptop opens `/form/`, phone opens `/app/`, scan → approve → fill.
-3. Verify the four relay guarantees from spec §Component 1 "What to verify": cross-network exchange works; content never logged (check Vercel logs); disconnect isolation; session scoping.
-4. Confirm the security-notes talking points (spec §"Security Notes") are all demonstrable/answerable live.
-5. Finalize README: secure-context warning first, run/deploy instructions, chosen relay transport, and the demo script.
+1. Push to `main` → Render auto-deploys. Confirm `/form/`, `/app/`, and the relay all work on the public HTTPS/WSS URL.
+2. Run the full "Running the demo (live)" script (see README): laptop opens `/form/`, phone opens `/app/`, scan → approve → fill.
+3. Verify the relay guarantees: cross-network exchange works; content never logged (check Render logs); disconnect isolation; session scoping.
+4. Confirm the security-notes talking points (README §"Security notes") are all demonstrable/answerable live.
+5. Finalize README: secure-context warning first, run/deploy instructions, Render architecture, demo script, security notes.
 
 **Done when:**
-- [ ] Laptop + phone on different networks complete the full flow on the production URL.
-- [ ] Vercel function logs contain zero payload content across a full run.
+- [x] Laptop + phone on different networks complete the full flow on the deployed URL. *(verified live)*
+- [x] Render logs contain zero payload content across a full run.
 - [ ] The DevTools WS-frames reveal works for a technical audience.
-- [ ] README is complete and leads with the secure-context warning.
+- [x] README is complete and leads with the secure-context warning.
 
 ---
 

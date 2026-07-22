@@ -5,6 +5,8 @@
 **Depends on:** NoMoreForms_MVP_Spec.md (read that first for context)  
 **Replaces:** v0.1 (local-only, two-tab browser demo)
 
+> ⚠️ **Deployment superseded (implementation note).** This spec targets **Vercel** (static hosting + an Edge Function relay). During implementation that proved impossible — **Vercel Functions cannot host a WebSocket server**. The demo was built as a **single Node service (`server.js`) on Render** that serves the static pages *and* the `ws` relay. All Vercel/`vercel.json`/Edge-Function references below are historical design intent, **not** how the demo is built or deployed. See `README.md` and `docs/demo_implementation.md` for the actual architecture. The crypto design, field namespace, UI, and flow in this spec are all still accurate.
+
 ---
 
 ## Overview

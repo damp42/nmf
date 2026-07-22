@@ -30,15 +30,26 @@ The relay routes by session ID only and **never parses or logs message content**
 ## Structure
 
 ```
-server.js               # Node service: static file server + ws relay
+server.js                 # Node service: static file server + blind ws relay
 public/
-  index.html            # Landing page
-  form/                 # Recipient form page (Phase 4)
-  app/                  # Mobile vault app (Phases 5–6)
-  shared/fields.js      # Shared NMF namespace definitions (Phase 1)
-package.json
-docs/                   # Specs + phased implementation plan
+  index.html              # Landing page (links to form + app)
+  shared/fields.js        # NMF namespace, bundles, name-composite model
+  form/
+    index.html            # Recipient form + live crypto log
+    crypto.js             # ECDH P-256 + HKDF + AES-256-GCM helpers
+    qr.js                 # QR rendering (qrcode-generator)
+    style.css
+  app/
+    index.html            # Mobile vault: vault / scanner / approval / confirm
+    crypto.js             # identical copy of form/crypto.js
+    scanner.js            # camera QR scanning (jsQR) + payload validation
+    style.css
+package.json              # one dependency: ws
+docs/                     # specs + phased implementation plan
 ```
+
+The two `crypto.js` copies are intentionally identical (kept in sync by hand); QR
+libraries load from CDN, so `ws` is the only npm dependency.
 
 ## Local development
 
@@ -70,3 +81,44 @@ Render is connected to this GitHub repo and auto-deploys on push to `main`:
 - **Instance type:** Free (note: free web services sleep after ~15 min idle; the first request wakes them with a cold start — pre-warm before a live demo).
 
 Render provides HTTPS + WSS automatically, satisfying the secure-context requirement in production.
+
+## Running the demo (live)
+
+**Before the audience arrives** (free tier sleeps when idle — this also pre-warms it):
+
+1. Laptop: open `https://<your-service>.onrender.com/form/` — the QR appears and the crypto log fills to "⏳ Awaiting approval…".
+2. Phone: open `https://<your-service>.onrender.com/app/` — the vault shows the fictional demo data.
+
+**In front of the audience:**
+
+1. Show the form — *"This could be any computer in any office. It has no idea who you are."*
+2. Show the phone — *"All the data lives here, on the user's device."*
+3. *(optional)* Edit the **First/Last name** on the phone — makes the source-of-truth point tangible.
+4. Tap **Scan QR Code**, point at the laptop → the approval screen lists exactly what's requested.
+5. *(optional)* Toggle a field off to show granular control, or tap **Deny** to show refusal.
+6. Tap **Approve** → the laptop form fills in real time; the crypto log completes through decrypt → submitted → audit.
+7. Point at the crypto log — *"This is everything the relay server saw. It couldn't read any of it."*
+8. *(technical audiences)* Laptop DevTools → Network → WS → click the frame to show the raw ciphertext that crossed the wire.
+
+## What the demo proves
+
+| Claim | How it's shown |
+|---|---|
+| Real asymmetric crypto | ECDH P-256 keypair generated live, logged |
+| Zero-knowledge relay | Relay log + WS frames show only ciphertext; it forwards the same blob it received |
+| MITM resistance | Shared key needs both private keys; neither is transmitted |
+| User approval gate | Nothing moves until the user approves on their device |
+| Granular control | Per-field toggles; withheld fields never leave the phone (and the relay can't even tell which were withheld) |
+| Client-side decryption | Form fills only after in-browser decrypt; server never held plaintext |
+
+## Security notes (disclose these to a technical audience — naming limits builds credibility)
+
+1. **No recipient authentication.** The phone encrypts to whatever public key is in the QR; a malicious QR could redirect data. Production would use registered recipient identities + a verified badge. For the demo, `recipient_label` provides human context.
+2. **Relay is unauthenticated.** Any client with the session ID can connect. Session IDs are 4 random bytes and expire with the QR (5 min). Production would use short-lived signed tokens.
+3. **Demo vault is plaintext in JS memory — by design.** This isolates *session crypto* (the real claim) from *vault-at-rest crypto* (a separate production concern: Argon2id-derived keys, encrypted storage).
+4. **P-256, not Curve25519.** Chosen for universal SubtleCrypto support with zero libraries. Production could upgrade to libsodium (X25519 + ChaCha20-Poly1305) without changing the protocol shape.
+5. **Secure context required.** `crypto.subtle` and the camera need HTTPS or `localhost` — never `file://`.
+
+## Status
+
+Functionally complete and verified end-to-end on two devices. Built incrementally per [`docs/demo_implementation.md`](docs/demo_implementation.md).
