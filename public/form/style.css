@@ -95,6 +95,20 @@ body {
   50%      { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent); }
 }
 .qr-caption { margin-top: 12px; font-size: 0.9rem; color: #475569; }
+.qr-countdown { margin-top: 6px; font-size: 0.8rem; color: #94a3b8; }
+
+/* richer denial card (replaces the QR on deny) */
+.denial-card {
+  text-align: center; padding: 32px 20px;
+  background: #fef2f2; border: 1px solid var(--error); border-radius: var(--radius);
+}
+.denial-card__icon {
+  width: 56px; height: 56px; line-height: 56px; margin: 0 auto 12px;
+  border-radius: 50%; background: var(--error); color: #fff; font-size: 1.6rem;
+}
+.denial-card h3 { margin: 0 0 6px; color: var(--error); }
+.denial-card p { margin: 2px 0; color: #64748b; font-size: 0.9rem; }
+.denial-card__time { font-family: var(--mono); font-size: 0.8rem !important; }
 .status { margin-top: 8px; font-size: 0.9rem; color: var(--warning); font-weight: 600; }
 .status.done { color: var(--success); }
 .status.denied { color: var(--error); }
@@ -110,7 +124,12 @@ body {
   min-height: 480px;
 }
 .log-panel h2 { margin: 0; font-size: 1.05rem; }
-.log-panel .subtitle { color: var(--text-muted); font-size: 0.82rem; margin: 4px 0 16px; }
+.log-panel .subtitle { color: var(--text-muted); font-size: 0.82rem; margin: 4px 0 8px; }
+.devtools-hint {
+  color: var(--text-muted); font-size: 0.75rem; margin: 0 0 16px;
+  padding: 8px 10px; background: var(--bg-primary);
+  border-left: 2px solid var(--accent); border-radius: 0 6px 6px 0;
+}
 .log {
   flex: 1;
   overflow-y: auto;

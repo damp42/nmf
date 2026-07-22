@@ -67,8 +67,17 @@
       </div>
 
       <div class="qr-block">
-        <div class="qr-container" id="qr-container"></div>
-        <p class="qr-caption">Scan with the NoMoreForms app</p>
+        <div id="qr-live">
+          <div class="qr-container" id="qr-container"></div>
+          <p class="qr-caption">Scan with the NoMoreForms app</p>
+          <p class="qr-countdown" id="qr-countdown"></p>
+        </div>
+        <div class="denial-card" id="denial-card" hidden>
+          <div class="denial-card__icon">✕</div>
+          <h3>Request Denied</h3>
+          <p>The user declined to share their information.</p>
+          <p class="denial-card__time" id="denial-time"></p>
+        </div>
         <p class="status" id="status">Initializing…</p>
       </div>
     </section>
@@ -77,6 +86,7 @@
     <aside class="log-panel">
       <h2>🔐 Crypto Log</h2>
       <p class="subtitle">Everything the relay server saw is shown here.</p>
+      <p class="devtools-hint">💡 Open DevTools → Network → WS to watch the raw ciphertext frames the relay forwarded.</p>
       <div class="log" id="crypto-log"></div>
     </aside>
   </div>
@@ -138,7 +148,19 @@
     }
 
     // ---- Session state ----
-    let session, keypair, ws, expiryTimer;
+    let session, keypair, ws, expiryTimer, expiresAt = 0;
+
+    // Live countdown to QR refresh.
+    function fmtRemaining(ms) {
+      const s = Math.max(0, Math.ceil(ms / 1000));
+      return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    }
+    setInterval(() => {
+      if (!expiresAt) return;
+      const el = document.getElementById('qr-countdown');
+      const rem = expiresAt - Date.now();
+      el.textContent = rem > 0 ? `Refreshes in ${fmtRemaining(rem)}` : 'Refreshing…';
+    }, 1000);
 
     function newSessionId() {
       const b = crypto.getRandomValues(new Uint8Array(4));
@@ -146,6 +168,11 @@
     }
 
     async function setup() {
+      // reset any prior denial state (e.g. after a refresh following a deny)
+      document.querySelector('.form-panel').classList.remove('denied');
+      document.getElementById('denial-card').hidden = true;
+      document.getElementById('qr-live').hidden = false;
+
       // a. session id
       session = newSessionId();
       log({ label: `Session created — ${session}` });
@@ -156,7 +183,7 @@
       log({ label: 'ECDH keypair generated (P-256)', detail: `Pub: ${truncate(pub, 10)}` });
 
       // d/e. build QR payload
-      const expiresAt = Date.now() + SESSION_TTL_MS;
+      expiresAt = Date.now() + SESSION_TTL_MS;
       const fields = resolveFields(REQUESTED_FIELDS);
       const qrPayload = {
         session_id:       session,
@@ -201,6 +228,9 @@
           log({ icon: '❌', label: 'Request denied by user', cls: 'error' });
           setStatus('✕ Request denied by user', 'denied');
           document.querySelector('.form-panel').classList.add('denied');
+          document.getElementById('qr-live').hidden = true;
+          document.getElementById('denial-time').textContent = 'Denied at ' + nowHHMMSS();
+          document.getElementById('denial-card').hidden = false;
           return;
         }
 
@@ -226,6 +256,17 @@
           detail: `${received.length} values received`,
           note: 'Server never held plaintext.',
         });
+
+        // partial approval: surface fields the user chose to withhold
+        const excluded = payload.excluded || [];
+        if (excluded.length) {
+          log({
+            icon: '⊘',
+            label: `${excluded.length} field(s) excluded by user`,
+            detail: excluded.map(k => NMF_FIELDS[k]?.label || k).join(', '),
+            cls: 'pending',
+          });
+        }
 
         // 11. populate matching inputs (first/last fill directly; full/emergency have no input → ignored)
         let filled = 0;

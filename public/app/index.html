@@ -348,9 +348,13 @@
         const formPub = await importPublicKey(p.public_key);
         const sharedKey = await deriveSharedKey(vaultKeypair.privateKey, formPub);
 
+        // Fields the user toggled OFF (for the form's partial-approval log).
+        // Carried INSIDE the ciphertext so the relay stays blind to it.
+        const excluded = currentRequest.fields.filter(k => !granted.includes(k));
+
         // Build the payload from granted fields (composites expanded, full computed).
         const fields = buildSharePayload(granted, vaultState);
-        const { iv, ciphertext } = await encrypt(sharedKey, { fields });
+        const { iv, ciphertext } = await encrypt(sharedKey, { fields, excluded });
 
         const envelope = JSON.stringify({ type: 'approved', app_public_key: appPub, iv, ciphertext });
         sendViaRelay(p.relay_url, p.session_id, envelope);
